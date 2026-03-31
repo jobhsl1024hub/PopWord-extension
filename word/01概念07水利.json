@@ -1,0 +1,11 @@
+[
+  {"word":"dam","translations":[{"translation":"水坝","type":"n."}],"phonetic":"[dæm]"},
+  {"word":"barrage","translations":[{"translation":"水坝","type":"n."}],"phonetic":"[ˈbærɑ:ʒ]"},
+  {"word":"well","translations":[{"translation":"水井","type":"n."}],"phonetic":"[wel]"},
+  {"word":"pump","translations":[{"translation":"水泵","type":"n."}],"phonetic":"[pʌmp]"},
+  {"word":"canal","translations":[{"translation":"水渠;运河","type":"n."}],"phonetic":"[kə'næl]"},
+  {"word":"channel","translations":[{"translation":"水渠;航道","type":"n."}],"phonetic":"['tʃænl]"},
+  {"word":"ditch","translations":[{"translation":"沟渠","type":"n."}],"phonetic":"[dɪtʃ]"},
+  {"word":"trench","translations":[{"translation":"沟渠;战壕","type":"n."}],"phonetic":"[trentʃ]"},
+  {"word":"irrigation","translations":[{"translation":"灌溉","type":"n."}],"phonetic":"[͵ɪrɪ'ɡeɪʃn]"}
+]
