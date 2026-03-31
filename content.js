@@ -35,12 +35,17 @@ function shuffle(array) {
 // 加载单词库（加载后对词库随机打乱顺序）
 async function loadWords() {
   try {
-    // 默认使用word文件夹作为词库路径
+    // 默认使用word文件夹作为词库路径，加载当前被选择的词库（避免直接使用默认库）
+    // 1️⃣ 从 storage 读取
+    const result = await chrome.storage.sync.get(['wordLibrary']);
+    const wordLibrary = result.wordLibrary || 'SAT.json'; // 给个默认值SAT.json
+
+    // 2️⃣ 再去 fetch
     const response = await fetch(chrome.runtime.getURL(`word/${wordLibrary}`));
     words = await response.json();
     shuffle(words); // 随机顺序
     console.log('词库加载成功:', wordLibrary, '共', words.length, '个单词（已随机顺序）');
-    
+
     // 加载历史记录；随机顺序下不从存储恢复遍历位置，从打乱后的第 0 个开始
     await loadHistory();
     currentWordIndex = 0;
@@ -55,18 +60,18 @@ async function loadWords() {
       currentWordIndex = 0;
       wordLibrary = 'CET4.json'; // 更新词库名称
       console.log('加载CET4.json成功（已随机顺序）');
-      
+
       // 加载历史记录，获取上次的遍历位置
       await loadHistory();
     } catch (error2) {
       console.error('加载词库失败:', error2);
       // 如果所有词库都加载失败，使用默认单词列表
       words = [
-        {"word":"hello","translations":[{"translation":"你好","type":"int"}]},
-        {"word":"world","translations":[{"translation":"世界","type":"n"}]},
-        {"word":"apple","translations":[{"translation":"苹果","type":"n"}]},
-        {"word":"banana","translations":[{"translation":"香蕉","type":"n"}]},
-        {"word":"cat","translations":[{"translation":"猫","type":"n"}]}
+        { "word": "hello", "translations": [{ "translation": "你好", "type": "int" }] },
+        { "word": "world", "translations": [{ "translation": "世界", "type": "n" }] },
+        { "word": "apple", "translations": [{ "translation": "苹果", "type": "n" }] },
+        { "word": "banana", "translations": [{ "translation": "香蕉", "type": "n" }] },
+        { "word": "cat", "translations": [{ "translation": "猫", "type": "n" }] }
       ];
       shuffle(words);
       currentWordIndex = 0;
@@ -82,12 +87,12 @@ async function loadHistory() {
     const libraryName = wordLibrary.replace('.json', '');
     const storagePositionKey = `wordPosition_${libraryName}`;
     const storageHistoryKey = `wordHistory_${libraryName}`;
-    
+
     console.log('尝试加载历史记录，词库:', libraryName);
-    
+
     // 从Chrome存储中获取遍历位置和历史记录
     return new Promise((resolve) => {
-      chrome.storage.local.get([storagePositionKey, storageHistoryKey], function(result) {
+      chrome.storage.local.get([storagePositionKey, storageHistoryKey], function (result) {
         if (result[storagePositionKey] !== undefined) {
           currentWordIndex = result[storagePositionKey];
           console.log('从存储中加载遍历位置:', currentWordIndex);
@@ -95,7 +100,7 @@ async function loadHistory() {
           console.log('没有找到历史遍历位置，从0开始');
           currentWordIndex = 0;
         }
-        
+
         if (result[storageHistoryKey] !== undefined) {
           // 从存储中加载历史记录，并转换为完整的单词对象结构
           wordHistory = result[storageHistoryKey].map(record => {
@@ -149,12 +154,12 @@ function savePosition() {
     const libraryName = wordLibrary.replace('.json', '');
     const storagePositionKey = `wordPosition_${libraryName}`;
     const storageHistoryKey = `wordHistory_${libraryName}`;
-    
+
     // 保存当前遍历位置和历史记录到Chrome存储
-    chrome.storage.local.set({ 
+    chrome.storage.local.set({
       [storagePositionKey]: currentWordIndex,
       [storageHistoryKey]: wordHistory
-    }, function() {
+    }, function () {
       console.log('遍历位置保存成功:', currentWordIndex);
       console.log('历史记录保存成功，长度:', wordHistory.length);
     });
@@ -166,7 +171,7 @@ function savePosition() {
 // 加载设置
 function loadSettings() {
   return new Promise((resolve) => {
-    chrome.storage.sync.get(['showBoth', 'playAudio', 'fadeTime', 'wordLibrary', 'audioApi', 'nextKey', 'prevKey', 'popwordEnabled'], function(data) {
+    chrome.storage.sync.get(['showBoth', 'playAudio', 'fadeTime', 'wordLibrary', 'audioApi', 'nextKey', 'prevKey', 'popwordEnabled'], function (data) {
       showBoth = data.showBoth || false;
       playAudioEnabled = data.playAudio !== false; // 默认开启
       fadeTime = data.fadeTime || 2; // 默认2秒
@@ -201,15 +206,15 @@ function saveWordMemory(wordData) {
     console.log('单词数据为空，无法保存记忆记录');
     return;
   }
-  
+
   try {
     // 获取当前词库名称（去掉.json后缀）
     const libraryName = wordLibrary.replace('.json', '');
-    
+
     // 从translations中获取中文意思和词性
     const meaning = wordData.translations && wordData.translations.length > 0 ? wordData.translations[0].translation : '';
     const type = wordData.translations && wordData.translations.length > 0 ? wordData.translations[0].type : '';
-    
+
     // 创建记忆记录
     const memoryRecord = {
       word: wordData.word,
@@ -217,9 +222,9 @@ function saveWordMemory(wordData) {
       meaning: meaning,
       date: new Date().toISOString()
     };
-    
+
     console.log('准备保存记忆记录:', memoryRecord);
-    
+
     // 入队后防抖批量写入，减少 storage 写入次数
     saveWordMemoryQueue.push({ storageKey: `wordHistory_${libraryName}`, record: memoryRecord });
     if (saveWordMemoryTimer) clearTimeout(saveWordMemoryTimer);
@@ -324,7 +329,7 @@ function showWordEffect(x, y, direction = 'next') {
           saveWordMemory(currentWordData);
         }
       }
-      
+
       if (currentWordData) {
         // 播放音频（如果开启）
         if (playAudioEnabled) {
@@ -356,14 +361,14 @@ function showWordEffect(x, y, direction = 'next') {
     // 如果设置为分开显示单词和中文意思
     clickCount++;
     console.log('当前点击次数:', clickCount);
-    
+
     if (direction === 'prev') {
       // 右键点击，显示上一个单词
       if (historyIndex > 0) {
         historyIndex--;
         currentWordData = wordHistory[historyIndex];
         console.log('获取上一个单词:', currentWordData.word);
-        
+
         if (clickCount % 2 === 1) {
           // 右键第一下，显示上一个英文
           // 播放音频（如果开启）
@@ -429,7 +434,7 @@ function showWordEffect(x, y, direction = 'next') {
             saveWordMemory(currentWordData);
           }
         }
-        
+
         if (currentWordData) {
           // 播放音频（如果开启）
           if (playAudioEnabled) {
@@ -482,14 +487,14 @@ function createFloatingElement(text, x, y, type) {
   console.log('文本:', text);
   console.log('位置:', x, y);
   console.log('类型:', type);
-  
+
   const element = document.createElement('div');
   element.className = 'word-effect';
   element.textContent = text;
   element.style.left = `${x}px`;
   element.style.top = `${y}px`;
   element.classList.add(type);
-  
+
   // 确保元素显示在最上层，使用!important覆盖所有样式
   element.style.zIndex = '999999 !important';
   element.style.position = 'fixed !important';
@@ -514,19 +519,19 @@ function createFloatingElement(text, x, y, type) {
   element.style.display = 'block !important';
   element.style.width = 'auto !important';
   element.style.height = 'auto !important';
-  
+
   // 动态设置过渡动画时间，与fadeTime相匹配
   const transitionTime = (fadeTime - 0.2).toFixed(1); // 留出0.2秒的启动延迟
   element.style.transition = `opacity ${transitionTime}s ease, transform ${transitionTime}s ease !important`;
 
   console.log('元素创建完成，准备添加到DOM');
   console.log('元素样式:', element.style.cssText);
-  
+
   try {
     document.body.appendChild(element);
     console.log('元素已添加到DOM');
     console.log('DOM中.word-effect元素数量:', document.querySelectorAll('.word-effect').length);
-    
+
     // 强制重排，确保元素立即显示
     element.offsetHeight;
     console.log('元素重排完成');
@@ -570,7 +575,7 @@ let usedWords = []; // 已使用的单词
 function playAudio(audioUrl, word) {
   console.log('尝试播放音频:', audioUrl, '单词:', word);
   console.log('当前audioApi:', audioApi);
-  
+
   // 如果提供了完整的音频URL，直接使用
   if (audioUrl) {
     console.log('使用提供的音频URL:', audioUrl);
@@ -588,7 +593,7 @@ function playAudio(audioUrl, word) {
 // 使用用户指定的音频API播放音频
 function playAudioWithYoudao(audioUrl, word) {
   console.log('尝试播放音频:', audioUrl, '单词:', word);
-  
+
   // 检查缓存中是否已有音频
   const cacheKey = `audio_${word}`;
   if (audioCache.has(cacheKey)) {
@@ -622,15 +627,15 @@ function loadAndPlayYoudaoAudio(audioUrl, word) {
       console.error('音频URL为空');
       return;
     }
-    
+
     const audio = new Audio(audioUrl);
     audio.preload = 'auto';
     audio.volume = 1.0;
-    
+
     // 添加到缓存
     const cacheKey = `audio_${word}`;
     audioCache.set(cacheKey, audio);
-    
+
     // 尝试播放音频
     audio.play().then(() => {
       console.log('音频播放成功:', word);
@@ -650,11 +655,11 @@ function loadAndPlayYoudaoAudio(audioUrl, word) {
           speech.rate = 1.0;
           speech.pitch = 1.0;
           speech.volume = 1.0;
-          
+
           // 播放TTS
           window.speechSynthesis.speak(speech);
           console.log('Web Speech API播放成功:', word);
-          
+
           // 增加使用计数
           usedWordCount++;
           // 记录已使用的单词
@@ -680,14 +685,14 @@ function loadAndPlayYoudaoAudio(audioUrl, word) {
 // 使用国内可用的TTS服务播放音频（备用）
 function playAudioWithTTS(word) {
   console.log('尝试使用TTS播放单词:', word);
-  
+
   // 首先尝试使用浏览器内置的Web Speech API
   if ('speechSynthesis' in window) {
     try {
       // 检查是否有可用的语音合成器
       if (window.speechSynthesis.getVoices().length === 0) {
         // 如果没有可用的语音，等待voiceschanged事件
-        window.speechSynthesis.onvoiceschanged = function() {
+        window.speechSynthesis.onvoiceschanged = function () {
           if (window.speechSynthesis.getVoices().length > 0) {
             playSpeechSynthesis(word);
           } else {
@@ -710,7 +715,7 @@ function playAudioWithTTS(word) {
     // 尝试使用百度TTS
     tryBaiduTTS(word);
   }
-  
+
   // 播放Web Speech API
   function playSpeechSynthesis(word) {
     try {
@@ -719,11 +724,11 @@ function playAudioWithTTS(word) {
       speech.rate = 1.0;
       speech.pitch = 1.0;
       speech.volume = 1.0;
-      
+
       // 播放TTS
       window.speechSynthesis.speak(speech);
       console.log('Web Speech API播放成功:', word);
-      
+
       // 增加使用计数
       usedWordCount++;
       // 检查是否需要缓存更多音频
@@ -734,14 +739,14 @@ function playAudioWithTTS(word) {
       tryBaiduTTS(word);
     }
   }
-  
+
   // 尝试使用百度TTS
   function tryBaiduTTS(word) {
     try {
       // 使用百度TTS API（无需API key的公共接口）
       const ttsUrl = `https://tts.baidu.com/text2audio?lan=en&ie=UTF-8&spd=5&text=${encodeURIComponent(word)}`;
       const audio = new Audio(ttsUrl);
-      
+
       audio.play().then(() => {
         console.log('百度TTS播放成功:', word);
         // 增加使用计数
@@ -763,10 +768,10 @@ function loadAndPlayAudio(audioUrl) {
   const audio = new Audio(audioUrl);
   audio.preload = 'auto';
   audio.volume = 1.0;
-  
+
   // 添加到缓存
   audioCache.set(audioUrl, audio);
-  
+
   // 尝试播放音频
   audio.play().then(() => {
     console.log('音频播放成功（新加载）');
@@ -785,7 +790,7 @@ function loadAndPlayAudio(audioUrl) {
 // 发送缓存更新消息
 function sendCacheUpdate() {
   // 更新缓存大小到存储
-  chrome.storage.local.set({ cacheSize: audioCache.size }, function() {
+  chrome.storage.local.set({ cacheSize: audioCache.size }, function () {
     console.log('缓存大小已更新到存储:', audioCache.size);
   });
 }
@@ -795,7 +800,7 @@ function checkAndCacheMoreAudio() {
   // 当使用了CACHE_THRESHOLD个单词后，缓存更多
   if (usedWordCount % CACHE_THRESHOLD === 0) {
     console.log(`已使用${usedWordCount}个单词，开始缓存更多音频`);
-    
+
     // 清除已使用的单词缓存
     if (usedWords.length >= CACHE_THRESHOLD) {
       const wordsToRemove = usedWords.splice(0, CACHE_THRESHOLD);
@@ -815,7 +820,7 @@ function checkAndCacheMoreAudio() {
       // 发送缓存更新消息
       sendCacheUpdate();
     }
-    
+
     // 缓存更多音频
     cacheMoreAudio();
   }
@@ -828,10 +833,10 @@ function cacheMoreAudio() {
     console.log('缓存已达到最大容量');
     return;
   }
-  
+
   // 计算需要缓存的数量
   const needToCache = Math.min(CACHE_THRESHOLD, CACHE_SIZE - cachedWordIndices.size);
-  
+
   // 错峰创建 Audio，避免一帧内大量创建导致卡顿
   setTimeout(() => {
     let cachedCount = 0;
@@ -902,7 +907,7 @@ function setupClickListener() {
     if (nextKey !== '鼠标左键') {
       return;
     }
-    
+
     console.log('点击事件捕获，目标:', e.target.tagName);
     console.log('目标类名:', e.target.className);
     console.log('目标ID:', e.target.id);
@@ -911,7 +916,7 @@ function setupClickListener() {
       console.log('点击目标是输入框/文本域/按钮，跳过');
       return;
     }
-    
+
     // 避免在B站的特殊元素上触发，如播放器、导航栏等
     if (e.target.closest('.bilibili-player') || e.target.closest('.nav-menu') || e.target.closest('.header')) {
       console.log('点击目标是B站特殊元素，跳过');
@@ -921,7 +926,7 @@ function setupClickListener() {
     console.log('触发showWordEffect函数（左键，下一个单词）');
     showWordEffect(e.clientX, e.clientY, 'next');
   }, true); // 使用捕获阶段
-  
+
   // 添加右键点击事件监听
   document.addEventListener('contextmenu', (e) => {
     if (!popwordEnabled) return;
@@ -929,26 +934,26 @@ function setupClickListener() {
     if (prevKey !== '鼠标右键') {
       return;
     }
-    
+
     console.log('右键点击事件捕获，目标:', e.target.tagName);
     // 避免在输入框、按钮等元素上触发
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') {
       console.log('点击目标是输入框/文本域/按钮，跳过');
       return;
     }
-    
+
     // 避免在B站的特殊元素上触发，如播放器、导航栏等
     if (e.target.closest('.bilibili-player') || e.target.closest('.nav-menu') || e.target.closest('.header')) {
       console.log('点击目标是B站特殊元素，跳过');
       return;
     }
-    
+
     // 阻止默认右键菜单
     e.preventDefault();
     console.log('触发showWordEffect函数（右键，上一个单词）');
     showWordEffect(e.clientX, e.clientY, 'prev');
   }, true); // 使用捕获阶段
-  
+
   // 添加键盘事件监听
   document.addEventListener('keydown', (e) => {
     if (!popwordEnabled) return;
@@ -956,7 +961,7 @@ function setupClickListener() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
       return;
     }
-    
+
     // 检查是否按下了自定义的下一个单词按键
     if (nextKey && e.key === nextKey) {
       console.log('按下了下一个单词按键:', nextKey);
@@ -965,7 +970,7 @@ function setupClickListener() {
       const y = window.innerHeight / 2;
       showWordEffect(x, y, 'next');
     }
-    
+
     // 检查是否按下了自定义的上一个单词按键
     if (prevKey && e.key === prevKey) {
       console.log('按下了上一个单词按键:', prevKey);
@@ -975,32 +980,32 @@ function setupClickListener() {
       showWordEffect(x, y, 'prev');
     }
   }, true); // 使用捕获阶段
-  
+
   console.log('点击事件监听器设置完成（使用捕获阶段）');
 }
 
 // 初始化
 async function init() {
   console.log('开始初始化插件');
-  
+
   console.log('加载单词库');
   await loadWords();
   console.log('单词库加载完成，大小:', words.length);
-  
+
   console.log('加载设置');
   await loadSettings();
   console.log('设置加载完成，showBoth:', showBoth, 'playAudioEnabled:', playAudioEnabled, 'fadeTime:', fadeTime);
-  
+
   console.log('设置点击事件监听器');
   setupClickListener();
-  
+
   // 初始化音频缓存
   console.log('初始化音频缓存');
   initAudioCache();
-  
+
   // 监听设置变化
   console.log('设置存储变化监听器');
-  chrome.storage.onChanged.addListener(function(changes, namespace) {
+  chrome.storage.onChanged.addListener(function (changes, namespace) {
     console.log('存储变化:', changes);
     if (changes.showBoth) {
       showBoth = changes.showBoth.newValue;
@@ -1049,10 +1054,10 @@ async function init() {
       dbg('popwordEnabled更新为:', popwordEnabled);
     }
   });
-  
+
   // 监听来自popup的消息
   console.log('设置消息监听器');
-  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
     console.log('收到消息:', request);
     if (request.action === 'setEnabled') {
       popwordEnabled = request.enabled === true;
@@ -1112,7 +1117,7 @@ async function init() {
       return true; // 表示异步响应
     }
   });
-  
+
   console.log('插件初始化完成');
 }
 
